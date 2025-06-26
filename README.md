@@ -253,5 +253,7 @@ For questions, support, or collaboration opportunities:
 
 *SBSA Hypercube Wave Dynamics System - Advancing the frontiers of discrete wave modeling and visualization*
 ![Screenshot 2025-06-26 232628](https://github.com/user-attachments/assets/0c250b17-c526-4558-932f-47fa795d4909)
+![Screenshot 2025-06-26 234903](https://github.com/user-attachments/assets/ff5dc113-5a13-4df1-90ab-4aac1493077d)
+![Screenshot 2025-06-26 234745](https://github.com/user-attachments/assets/862c8d33-3161-4fea-82cb-124d950e46bd)
 
 
