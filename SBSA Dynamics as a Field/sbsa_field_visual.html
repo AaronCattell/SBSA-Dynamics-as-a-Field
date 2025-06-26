@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SBSA Dynamics Field Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            background: #0e0e1a;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(to bottom, #0e0e1a, #1a1a2e);
+        }
+        .overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #64b5f6;
+        }
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .controls label {
+            display: block;
+            margin-top: 5px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="sbsaCanvas"></canvas>
+    <div class="overlay">
+        <strong>SBSA Dynamics Field</strong><br>
+        Visualizing quantized 4D wave interaction<br>
+        Dimensions: Size, Thickness, Width, Version
+    </div>
+    <div class="controls">
+        <label>Amplitude: <input type="range" id="amplitude" min="10" max="100" value="40"></label>
+        <label>Frequency: <input type="range" id="frequency" min="0.001" max="0.05" step="0.001" value="0.015"></label>
+        <label>Resolution: <input type="range" id="resolution" min="10" max="100" value="50"></label>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('sbsaCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        let amplitude = 40;
+        let frequency = 0.015;
+        let resolution = 50;
+        let time = 0;
+
+        document.getElementById('amplitude').addEventListener('input', e => amplitude = +e.target.value);
+        document.getElementById('frequency').addEventListener('input', e => frequency = +e.target.value);
+        document.getElementById('resolution').addEventListener('input', e => resolution = +e.target.value);
+
+        function quantize(x, delta) {
+            return delta * Math.round(x / delta);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const width = canvas.width;
+            const height = canvas.height;
+
+            const gridX = resolution;
+            const gridY = resolution;
+
+            const angle = Math.PI / 6; // 30 degrees tilt for 3D effect
+            const cosA = Math.cos(angle);
+            const sinA = Math.sin(angle);
+            const centerX = width / 2;
+            const centerY = height / 2 + 100;
+
+            for (let x = 0; x < width; x += gridX) {
+                for (let y = 0; y < height; y += gridY) {
+                    const s = (x % 200) / 50;
+                    const t = quantize(x * 0.1, 5);
+                    const w = quantize(y * 0.1, 0.05);
+                    const v = ((x + y) % 100);
+                    const addr = s * 200001 * 19999981 * 10001 + t * 19999981 * 10001 + w * 10001 + v;
+                    const phase = (addr % 1000) / 1000 * 2 * Math.PI + time;
+                    const amp = Math.sin(phase) * amplitude;
+
+                    const size = Math.abs(amp / 10);
+
+                    // 3D perspective projection at an angle
+                    const x3d = (x - centerX) * cosA + (y - centerY) * sinA + centerX;
+                    const y3d = (y - centerY) * cosA - (x - centerX) * sinA - amp + centerY;
+
+                    const color = `hsl(${(addr % 360)}, 70%, 60%)`;
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.arc(x3d, y3d, size, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+            }
+            time += frequency;
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+    </script>
+</body>
+</html>
