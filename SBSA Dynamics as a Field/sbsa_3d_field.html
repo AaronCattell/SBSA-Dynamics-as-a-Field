@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SBSA 3D Hypercube Wave Field</title>
+    <style>
+        body {
+            margin: 0;
+            background: #0a0a15;
+            color: white;
+            font-family: 'Consolas', monospace;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: grab;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        .overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #64b5f6;
+            border: 1px solid #333;
+        }
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            min-width: 200px;
+        }
+        .controls label {
+            display: block;
+            margin: 8px 0;
+            font-size: 12px;
+            color: #ccc;
+        }
+        .controls input[type="range"] {
+            width: 100%;
+            margin-left: 5px;
+        }
+        .controls button {
+            background: #1e3a8a;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            margin: 5px 5px 0 0;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .controls button:hover {
+            background: #2563eb;
+        }
+        .info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 12px;
+            color: #64b5f6;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="sbsaCanvas"></canvas>
+    
+    <div class="overlay">
+        <strong>SBSA 3D Hypercube Wave Field</strong><br>
+        Spherical wave propagation from center<br>
+        <span style="color: #90ee90;">Active Nodes:</span> <span id="nodeCount">0</span><br>
+        <span style="color: #ffa500;">Wave Radius:</span> <span id="waveRadius">0</span>
+    </div>
+    
+    <div class="controls">
+        <label>Wave Speed: <input type="range" id="waveSpeed" min="0.5" max="5" step="0.1" value="2"></label>
+        <label>Amplitude: <input type="range" id="amplitude" min="10" max="80" value="30"></label>
+        <label>Frequency: <input type="range" id="frequency" min="0.01" max="0.2" step="0.01" value="0.05"></label>
+        <label>Grid Density: <input type="range" id="gridDensity" min="5" max="25" value="12"></label>
+        <label>Field Size: <input type="range" id="fieldSize" min="100" max="400" value="200"></label>
+        <button onclick="resetWave()">Reset Wave</button>
+        <button onclick="togglePause()">Pause/Play</button>
+    </div>
+    
+    <div class="info">
+        <strong>Navigation:</strong><br>
+        • Drag to rotate view<br>
+        • Scroll to zoom<br>
+        • WASD to move camera<br>
+        • Space/Shift for up/down<br>
+        <br>
+        <strong>Camera:</strong><br>
+        Angle: <span id="cameraAngle">0°</span><br>
+        Distance: <span id="cameraDistance">300</span><br>
+        Height: <span id="cameraHeight">0</span>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('sbsaCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let mouseDown = false;
+        let mouseX = 0, mouseY = 0;
+        let cameraAngleX = 0, cameraAngleY = 0;
+        let cameraDistance = 300;
+        let cameraHeight = 0;
+        let cameraX = 0, cameraZ = 0;
+        
+        let waveSpeed = 2;
+        let amplitude = 30;
+        let frequency = 0.05;
+        let gridDensity = 12;
+        let fieldSize = 200;
+        let time = 0;
+        let waveRadius = 0;
+        let isPaused = false;
+        
+        const keys = {};
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Mouse controls
+        canvas.addEventListener('mousedown', (e) => {
+            mouseDown = true;
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (mouseDown) {
+                const deltaX = e.clientX - mouseX;
+                const deltaY = e.clientY - mouseY;
+                cameraAngleY += deltaX * 0.01;
+                cameraAngleX += deltaY * 0.01;
+                cameraAngleX = Math.max(-Math.PI/2, Math.min(Math.PI/2, cameraAngleX));
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => mouseDown = false);
+        canvas.addEventListener('mouseleave', () => mouseDown = false);
+
+        // Zoom control
+        canvas.addEventListener('wheel', (e) => {
+            cameraDistance += e.deltaY * 0.5;
+            cameraDistance = Math.max(50, Math.min(800, cameraDistance));
+            e.preventDefault();
+        });
+
+        // Keyboard controls
+        window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+
+        // Control bindings
+        document.getElementById('waveSpeed').addEventListener('input', e => waveSpeed = +e.target.value);
+        document.getElementById('amplitude').addEventListener('input', e => amplitude = +e.target.value);
+        document.getElementById('frequency').addEventListener('input', e => frequency = +e.target.value);
+        document.getElementById('gridDensity').addEventListener('input', e => gridDensity = +e.target.value);
+        document.getElementById('fieldSize').addEventListener('input', e => fieldSize = +e.target.value);
+
+        function resetWave() {
+            time = 0;
+            waveRadius = 0;
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+        }
+
+        function updateCamera() {
+            const moveSpeed = 3;
+            if (keys['w']) cameraZ -= moveSpeed;
+            if (keys['s']) cameraZ += moveSpeed;
+            if (keys['a']) cameraX -= moveSpeed;
+            if (keys['d']) cameraX += moveSpeed;
+            if (keys[' ']) cameraHeight += moveSpeed;
+            if (keys['shift']) cameraHeight -= moveSpeed;
+        }
+
+        function project3D(x, y, z) {
+            // Apply camera transformations
+            const dx = x - cameraX;
+            const dy = y - cameraHeight;
+            const dz = z - cameraZ;
+            
+            // Rotate around Y axis (horizontal rotation)
+            const cosY = Math.cos(cameraAngleY);
+            const sinY = Math.sin(cameraAngleY);
+            const x1 = dx * cosY - dz * sinY;
+            const z1 = dx * sinY + dz * cosY;
+            
+            // Rotate around X axis (vertical rotation)
+            const cosX = Math.cos(cameraAngleX);
+            const sinX = Math.sin(cameraAngleX);
+            const y1 = dy * cosX - z1 * sinX;
+            const z2 = dy * sinX + z1 * cosX + cameraDistance;
+            
+            // Perspective projection
+            const scale = 400 / (z2 + 400);
+            const screenX = canvas.width / 2 + x1 * scale;
+            const screenY = canvas.height / 2 + y1 * scale;
+            
+            return { x: screenX, y: screenY, z: z2, scale };
+        }
+
+        function quantize(value, step) {
+            return step * Math.round(value / step);
+        }
+
+        function sbsaEncode(x, y, z, t) {
+            // SBSA encoding with size, thickness, width, version
+            const size = Math.abs(x) + Math.abs(y) + Math.abs(z);
+            const thickness = quantize(Math.sqrt(x*x + y*y + z*z), 5);
+            const width = quantize(Math.atan2(y, x) * 100, 0.1);
+            const version = quantize(t, 1);
+            
+            return size * 1000000 + thickness * 10000 + width * 100 + version;
+        }
+
+        function getWaveAmplitude(x, y, z, currentTime) {
+            const distance = Math.sqrt(x*x + y*y + z*z);
+            const wavePhase = distance * frequency - currentTime * waveSpeed;
+            
+            // Wave envelope - only show wave within certain radius
+            const waveEnvelope = Math.max(0, 1 - Math.abs(distance - waveRadius) / 20);
+            
+            return Math.sin(wavePhase) * amplitude * waveEnvelope;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (!isPaused) {
+                time += 0.1;
+                waveRadius = time * waveSpeed;
+            }
+            
+            updateCamera();
+            
+            const nodes = [];
+            const step = fieldSize / gridDensity;
+            let activeNodes = 0;
+            
+            // Generate 3D grid of wave nodes
+            for (let x = -fieldSize; x <= fieldSize; x += step) {
+                for (let y = -fieldSize; y <= fieldSize; y += step) {
+                    for (let z = -fieldSize; z <= fieldSize; z += step) {
+                        const distance = Math.sqrt(x*x + y*y + z*z);
+                        
+                        // Only render nodes within wave influence
+                        if (Math.abs(distance - waveRadius) < 30) {
+                            const waveAmp = getWaveAmplitude(x, y, z, time);
+                            const sbsaAddr = sbsaEncode(x, y, z, time);
+                            
+                            if (Math.abs(waveAmp) > 1) {
+                                nodes.push({ x, y, z, amp: waveAmp, addr: sbsaAddr, distance });
+                                activeNodes++;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Sort nodes by distance for proper depth rendering
+            nodes.sort((a, b) => {
+                const projA = project3D(a.x, a.y, a.z);
+                const projB = project3D(b.x, b.y, b.z);
+                return projB.z - projA.z;
+            });
+            
+            // Render nodes
+            nodes.forEach(node => {
+                const projected = project3D(node.x, node.y, node.z);
+                
+                if (projected.x >= 0 && projected.x <= canvas.width && 
+                    projected.y >= 0 && projected.y <= canvas.height) {
+                    
+                    const size = Math.abs(node.amp / 5) * projected.scale;
+                    const hue = (node.addr % 360);
+                    const intensity = Math.abs(node.amp) / amplitude;
+                    const alpha = intensity * 0.8;
+                    
+                    // Create pulsing effect
+                    const pulse = 1 + Math.sin(time * 2 + node.distance * 0.1) * 0.3;
+                    const finalSize = size * pulse;
+                    
+                    ctx.fillStyle = `hsla(${hue}, 70%, 60%, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(projected.x, projected.y, finalSize, 0, 2 * Math.PI);
+                    ctx.fill();
+                    
+                    // Add glow effect for high amplitude nodes
+                    if (intensity > 0.7) {
+                        ctx.fillStyle = `hsla(${hue}, 90%, 80%, ${alpha * 0.3})`;
+                        ctx.beginPath();
+                        ctx.arc(projected.x, projected.y, finalSize * 2, 0, 2 * Math.PI);
+                        ctx.fill();
+                    }
+                }
+            });
+            
+            // Draw center point
+            const center = project3D(0, 0, 0);
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, 5 * center.scale, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Update UI
+            document.getElementById('nodeCount').textContent = activeNodes;
+            document.getElementById('waveRadius').textContent = Math.round(waveRadius);
+            document.getElementById('cameraAngle').textContent = Math.round(cameraAngleY * 180 / Math.PI) + '°';
+            document.getElementById('cameraDistance').textContent = Math.round(cameraDistance);
+            document.getElementById('cameraHeight').textContent = Math.round(cameraHeight);
+            
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+    </script>
+</body>
+</html>
