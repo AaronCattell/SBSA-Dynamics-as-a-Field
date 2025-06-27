@@ -240,14 +240,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - 3D visualization techniques adapted from modern graphics pipelines
 - Community contributions to discrete wave modeling theory
 
-## Contact
 
-For questions, support, or collaboration opportunities:
-
-- **Email**: sbsa-support@example.com
-- **Documentation**: https://sbsa-docs.example.com
-- **Issues**: https://github.com/username/sbsa-hypercube-wave-dynamics/issues
-- **Discussions**: https://github.com/username/sbsa-hypercube-wave-dynamics/discussions
 
 ---
 
